@@ -24,6 +24,9 @@ def get_binance_sol_ohlcv(limit=1000):
     return df
 
 def calc_indicators(df):
+    if len(df) < 250:
+        raise ValueError("Not enough data to calculate all indicators (need at least 250 rows)")
+
     df["sma_20"] = df["close"].rolling(window=20).mean()
     df["sma_50"] = df["close"].rolling(window=50).mean()
     df["sma_200"] = df["close"].rolling(window=200).mean()
@@ -41,7 +44,7 @@ def calc_indicators(df):
     avg_loss = loss.rolling(window=14).mean()
     rs = avg_gain / avg_loss
     df["rsi"] = 100 - (100 / (1 + rs))
-    
+
     # ROC
     df["roc"] = df["close"].pct_change(periods=12) * 100
 
@@ -95,11 +98,10 @@ def calc_indicators(df):
     mfv = mfm * df["volume"]
     df["cmf"] = mfv.rolling(20).sum() / df["volume"].rolling(20).sum()
 
-    # AD Line
+    # A/D Line
     clv = ((df["close"] - df["low"]) - (df["high"] - df["close"])) / (df["high"] - df["low"])
     clv = clv.replace([np.inf, -np.inf], 0).fillna(0)
     df["ad"] = (clv * df["volume"]).cumsum()
-
 
     df.dropna(inplace=True)
     return df
