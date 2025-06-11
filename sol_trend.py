@@ -41,6 +41,65 @@ def calc_indicators(df):
     avg_loss = loss.rolling(window=14).mean()
     rs = avg_gain / avg_loss
     df["rsi"] = 100 - (100 / (1 + rs))
+    
+    # ROC
+    df["roc"] = df["close"].pct_change(periods=12) * 100
+
+    # CCI
+    tp = (df["high"] + df["low"] + df["close"]) / 3
+    ma = tp.rolling(20).mean()
+    md = tp.rolling(20).apply(lambda x: np.mean(np.abs(x - x.mean())))
+    df["cci"] = (tp - ma) / (0.015 * md)
+
+    # UO
+    bp = df["close"] - df[["low", "close"]].min(axis=1)
+    tr = pd.concat([
+        df["high"] - df["low"],
+        (df["high"] - df["close"].shift()).abs(),
+        (df["low"] - df["close"].shift()).abs()
+    ], axis=1).max(axis=1)
+
+    avg7 = bp.rolling(7).sum() / tr.rolling(7).sum()
+    avg14 = bp.rolling(14).sum() / tr.rolling(14).sum()
+    avg28 = bp.rolling(28).sum() / tr.rolling(28).sum()
+    df["uo"] = 100 * (4 * avg7 + 2 * avg14 + avg28) / 7
+
+    # Stochastic Oscillator
+    lowest_low = df["low"].rolling(14).min()
+    highest_high = df["high"].rolling(14).max()
+    df["stoch_k"] = 100 * ((df["close"] - lowest_low) / (highest_high - lowest_low))
+    df["stoch_d"] = df["stoch_k"].rolling(3).mean()
+
+    # Williams %R
+    df["williams_r"] = -100 * ((highest_high - df["close"]) / (highest_high - lowest_low))
+
+    # ADX / DMI
+    plus_dm = df["high"].diff()
+    minus_dm = df["low"].diff().abs()
+    tr = df[["high", "low", "close"]].apply(lambda x: max(
+        x["high"] - x["low"],
+        abs(x["high"] - x["close"]),
+        abs(x["low"] - x["close"])
+    ), axis=1)
+    atr = tr.rolling(14).mean()
+    df["+DI"] = 100 * (plus_dm.rolling(14).mean() / atr)
+    df["-DI"] = 100 * (minus_dm.rolling(14).mean() / atr)
+    df["adx"] = abs(df["+DI"] - df["-DI"]).rolling(14).mean()
+
+    # OBV
+    df["obv"] = (np.sign(df["close"].diff()) * df["volume"]).fillna(0).cumsum()
+
+    # CMF
+    mfm = ((df["close"] - df["low"]) - (df["high"] - df["close"])) / (df["high"] - df["low"])
+    mfm = mfm.replace([np.inf, -np.inf], 0).fillna(0)
+    mfv = mfm * df["volume"]
+    df["cmf"] = mfv.rolling(20).sum() / df["volume"].rolling(20).sum()
+
+    # AD Line
+    clv = ((df["close"] - df["low"]) - (df["high"] - df["close"])) / (df["high"] - df["low"])
+    clv = clv.replace([np.inf, -np.inf], 0).fillna(0)
+    df["ad"] = (clv * df["volume"]).cumsum()
+
 
     df.dropna(inplace=True)
     return df
