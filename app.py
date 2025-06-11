@@ -78,7 +78,7 @@ try:
     def send_telegram_alert(summary):
         if not bot_token or not chat_id:
             return
-        text = f"📈 Trend Flip Alert!
+        text = f"""📈 Trend Flip Alert!
     New Trend: {summary['overall']['trend']}
     Bullish: {summary['overall']['bullish_score']}
     Bearish: {summary['overall']['bearish_score']}"
