@@ -75,8 +75,8 @@ def evaluate_trend_by_category(df):
         }
 
     summary["overall"] = {
-        "bullish_score": total_bullish,
-        "bearish_score": total_bearish,
+        "bullish_score": int(total_bullish),
+        "bearish_score": int(total_bearish),
         "trend": "BULLISH" if total_bullish > total_bearish else "BEARISH"
     }
 
