@@ -65,9 +65,38 @@ st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
 st.title("📈 Solana (SOL) Trend Dashboard")
 
 try:
-    df = get_binance_sol_ohlcv(limit=1000)
+        df = get_binance_sol_ohlcv(limit=1000)
     df = calc_indicators(df)
     trend = evaluate_trend_by_category(df)
+
+    # --- Telegram alert setup ---
+    import os, requests
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")  # Set in Streamlit Secrets or env
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")      # Set in Streamlit Secrets or env
+    log_file = "trend_state.txt"
+
+    def send_telegram_alert(summary):
+        if not bot_token or not chat_id:
+            return
+        text = f"📈 Trend Flip Alert!
+    New Trend: {summary['overall']['trend']}
+    Bullish: {summary['overall']['bullish_score']}
+    Bearish: {summary['overall']['bearish_score']}"
+        url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+        requests.post(url, data={"chat_id": chat_id, "text": text})
+
+    def check_and_alert_trend(summary):
+        new_trend = summary["overall"]["trend"]
+        last_trend = None
+        if os.path.exists(log_file):
+            with open(log_file, "r") as f:
+                last_trend = f.read().strip()
+        if new_trend != last_trend:
+            send_telegram_alert(summary)
+            with open(log_file, "w") as f:
+                f.write(new_trend)
+
+    check_and_alert_trend(trend)
 
     st.subheader("🌿 Overall Trend Summary")
     st.metric("Bullish Signals", trend["overall"]["bullish_score"])
