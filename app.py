@@ -82,9 +82,10 @@ for i, category in enumerate(["momentum", "trend", "volatility", "volume"]):
             st.metric(label=category.capitalize(), value=trend[category]["score"])
             with st.expander(f"{category.capitalize()} Details"):
                 for label, result in trend[category]["details"].items():
-                    st.write(f"✅ {label}" if result else f"❌ {label}")
+                    emoji = "✅" if result else "❌"
+                    st.write(f"{emoji} {label}")
 
-    st.subheader("📉 Price + SMAs")
+st.subheader("📉 Price + SMAs")
     fig, ax = plt.subplots(figsize=(10, 4))
     df[["close", "sma_20", "sma_50", "sma_200"]].plot(ax=ax)
     ax.set_title("Price with SMAs")
