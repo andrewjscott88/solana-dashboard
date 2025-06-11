@@ -78,10 +78,13 @@ try:
     def send_telegram_alert(summary):
         if not bot_token or not chat_id:
             return
-        text = f"""📈 Trend Flip Alert!
-    New Trend: {summary['overall']['trend']}
-    Bullish: {summary['overall']['bullish_score']}
-    Bearish: {summary['overall']['bearish_score']}"
+        text = ("📈 Trend Flip Alert!
+"
+                f"New Trend: {summary['overall']['trend']}
+"
+                f"Bullish: {summary['overall']['bullish_score']}
+"
+                f"Bearish: {summary['overall']['bearish_score']}")
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         requests.post(url, data={"chat_id": chat_id, "text": text})
 
