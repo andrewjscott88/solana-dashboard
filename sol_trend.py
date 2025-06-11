@@ -6,7 +6,7 @@ def get_binance_sol_ohlcv(limit=1000):
     url = "https://api.binance.us/api/v3/klines"
     params = {
         "symbol": "SOLUSDT",
-        "interval": "1h",
+        "interval": "1m",
         "limit": limit
     }
     response = requests.get(url, params=params)
