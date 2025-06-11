@@ -65,7 +65,7 @@ st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
 st.title("📈 Solana (SOL) Trend Dashboard")
 
 try:
-        df = get_binance_sol_ohlcv(limit=1000)
+    df = get_binance_sol_ohlcv(limit=1000)
     df = calc_indicators(df)
     trend = evaluate_trend_by_category(df)
 
