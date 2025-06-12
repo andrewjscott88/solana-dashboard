@@ -61,6 +61,23 @@ def evaluate_trend_by_category(df):
 
     return summary
 
+def build_trend_summary(summary):
+    lines = [
+        f"Current trend: {summary['overall']['trend']}",
+        f"Bullish indicators: {summary['overall']['bullish_score']}",
+        f"Bearish indicators: {summary['overall']['bearish_score']}",
+        ""
+    ]
+    for cat in ["momentum", "trend", "volatility", "volume"]:
+        cat_summary = summary[cat]
+        lines.append(f"{cat.capitalize()} ({cat_summary['score']}):")
+        for label, result in cat_summary["details"].items():
+            emoji = "✅" if result else "❌"
+            lines.append(f"  {emoji} {label}")
+        lines.append("")
+    return "\n".join(lines)
+
+
 st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
 st.title("📈 Solana (SOL) Trend Dashboard")
 
@@ -78,15 +95,29 @@ try:
     def send_telegram_alert(summary):
         if not bot_token or not chat_id:
             return
+
+        # Extract up to 3 top bullish/bearish reasons from all categories
+        bullish_reasons = []
+        bearish_reasons = []
+        for category in ["momentum", "trend", "volatility", "volume"]:
+            for label, result in summary[category]["details"].items():
+                if result and len(bullish_reasons) < 3:
+                    bullish_reasons.append(f"✅ {label}")
+                elif not result and len(bearish_reasons) < 3:
+                    bearish_reasons.append(f"❌ {label}")
+
         text = (
             f"📈 Trend Flip Alert!\n"
             f"New Trend: {summary['overall']['trend']}\n"
             f"Bullish: {summary['overall']['bullish_score']}\n"
-            f"Bearish: {summary['overall']['bearish_score']}"
+            f"Bearish: {summary['overall']['bearish_score']}\n\n"
+            f"🔼 Bullish Signals:\n" + "\n".join(bullish_reasons) + "\n\n"
+            f"🔽 Bearish Signals:\n" + "\n".join(bearish_reasons)
         )
 
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         requests.post(url, data={"chat_id": chat_id, "text": text})
+
 
     def check_and_alert_trend(summary):
         new_trend = summary["overall"]["trend"]
@@ -146,3 +177,62 @@ try:
 
 except Exception as e:
     st.error(f"❌ Failed to load dashboard: {e}")
+    
+
+#tinyllama_chat.py
+st.title("🤖 TinyLlama Chat")
+
+# Initialize session state
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+user_input = st.chat_input("Talk to TinyLlama:")
+if user_input:
+    st.session_state.chat_history.append(("🧑", user_input))
+
+    # Send to Ollama TinyLlama
+    response = requests.post(
+        "http://localhost:11434/api/generate",
+        json={"model": "tinyllama", "prompt": user_input, "stream": False}
+    )
+
+    if response.status_code == 200:
+        reply = response.json()["response"]
+    else:
+        reply = f"⚠️ Error: {response.text}"
+
+    st.session_state.chat_history.append(("🤖", reply))
+    
+if user_input:
+    st.session_state.chat_history.append(("🧑", user_input))
+
+    # Inject market data into system prompt
+    context = build_trend_summary(trend)
+    prompt = f"""You are an expert trading assistant.
+Here is today's market trend summary for Solana (SOL):
+
+{context}
+
+Now answer this user question: {user_input}
+"""
+    TINYLLAMA_URL = "http://213.173.105.84:22540"
+
+    response = requests.post(
+        f"{TINYLLAMA_URL}/api/generate",
+        json={"model": "tinyllama", "prompt": prompt, "stream": False}
+    )
+
+    
+
+    if response.status_code == 200:
+        reply = response.json()["response"]
+    else:
+        reply = f"⚠️ Error: {response.text}"
+
+    st.session_state.chat_history.append(("🤖", reply))
+
+
+# Display chat history
+for speaker, msg in st.session_state.chat_history:
+    st.markdown(f"**{speaker}**: {msg}")
+
