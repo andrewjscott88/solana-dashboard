@@ -179,60 +179,54 @@ except Exception as e:
     st.error(f"❌ Failed to load dashboard: {e}")
     
 
-#tinyllama_chat.py
-st.title("🤖 TinyLlama Chat")
+st.divider()
+st.title("💬 Chat with TinyLlama")
 
-# Initialize session state
+# Store chat history in session
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-user_input = st.chat_input("Talk to TinyLlama:")
+# Input box
+user_input = st.chat_input("Ask TinyLlama about the trend, crypto, or anything...")
+
+# Build context from market trend
+def build_trend_summary(summary):
+    lines = [
+        f"Current trend: {summary['overall']['trend']}",
+        f"Bullish: {summary['overall']['bullish_score']}",
+        f"Bearish: {summary['overall']['bearish_score']}"
+    ]
+    for cat in ["momentum", "trend", "volatility", "volume"]:
+        if cat in summary:
+            lines.append(f"\n{cat.upper()} ({summary[cat]['score']}):")
+            for label, passed in summary[cat]["details"].items():
+                lines.append(f"{'✅' if passed else '❌'} {label}")
+    return "\n".join(lines)
+
 if user_input:
     st.session_state.chat_history.append(("🧑", user_input))
 
-    # Send to Ollama TinyLlama
-    response = requests.post(
-        "http://localhost:11434/api/generate",
-        json={"model": "tinyllama", "prompt": user_input, "stream": False}
-    )
-
-    if response.status_code == 200:
-        reply = response.json()["response"]
-    else:
-        reply = f"⚠️ Error: {response.text}"
-
-    st.session_state.chat_history.append(("🤖", reply))
-    
-if user_input:
-    st.session_state.chat_history.append(("🧑", user_input))
-
-    # Inject market data into system prompt
+    # Combine context + question
     context = build_trend_summary(trend)
-    prompt = f"""You are an expert trading assistant.
-Here is today's market trend summary for Solana (SOL):
+    prompt = f"""You are a crypto trading assistant. Use the following Solana (SOL) market data to help answer user questions.
 
 {context}
 
-Now answer this user question: {user_input}
+Now answer: {user_input}
 """
-    TINYLLAMA_URL = "http://213.173.105.84:22540"
 
-    response = requests.post(
-        f"{TINYLLAMA_URL}/api/generate",
-        json={"model": "tinyllama", "prompt": prompt, "stream": False}
-    )
-
-    
-
-    if response.status_code == 200:
+    try:
+        TINYLLAMA_URL = "http://213.173.105.84:22540"  # Replace with your public endpoint
+        response = requests.post(
+            f"{TINYLLAMA_URL}/api/generate",
+            json={"model": "tinyllama", "prompt": prompt, "stream": False}
+        )
         reply = response.json()["response"]
-    else:
-        reply = f"⚠️ Error: {response.text}"
+    except Exception as e:
+        reply = f"⚠️ Error connecting to TinyLlama: {e}"
 
     st.session_state.chat_history.append(("🤖", reply))
 
-
-# Display chat history
+# Show history
 for speaker, msg in st.session_state.chat_history:
     st.markdown(f"**{speaker}**: {msg}")
-
