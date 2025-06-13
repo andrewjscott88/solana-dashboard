@@ -11,7 +11,7 @@ SEEN_SIGNATURES = deque(maxlen=100)  # Limits memory use
 def log(msg):
     timestamp = time.strftime("[%Y-%m-%d %H:%M:%S]")
     full_msg = f"{timestamp} {msg}"
-    print(full_msg)
+    #print(full_msg)
     with open(LOG_FILE, "a") as f:
         f.write(full_msg + "\n")
 
