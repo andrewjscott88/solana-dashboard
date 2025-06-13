@@ -195,7 +195,10 @@ Now answer: {user_input}"""
 for speaker, msg in st.session_state.chat_history:
     st.markdown(f"**{speaker}**: {msg}")
 
+print("⚙️ Calling init_wallet_monitor()...")
 init_wallet_monitor()
+print("✅ init_wallet_monitor() call completed.")
+
 with st.sidebar.expander("📡 Live Wallet Activity"):
     if TX_LOG:
         for tx in TX_LOG[-5:][::-1]:
