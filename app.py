@@ -2,6 +2,19 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from sol_trend import get_binance_sol_ohlcv, calc_indicators
 
+from wallet_monitor import init_wallet_monitor, TX_LOG
+
+# Start monitoring
+init_wallet_monitor()
+
+with st.sidebar.expander("📡 Live Wallet Activity"):
+    if TX_LOG:
+        for tx in TX_LOG[-5:][::-1]:
+            st.write(f"🔁 Transaction: {tx.get('signature', 'N/A')}")
+    else:
+        st.info("Waiting for wallet activity...")
+
+
 
 def evaluate_trend_by_category(df):
     latest = df.iloc[-1]
