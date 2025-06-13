@@ -48,4 +48,12 @@ def start_wallet_monitor():
 
 def init_wallet_monitor():
     if "wallet_thread" not in st.session_state:
-        print("🧵 Launching wal
+        print("🧵 Launching wallet monitor thread...")
+        try:
+            thread = threading.Thread(target=start_wallet_monitor)
+            thread.daemon = True
+            thread.start()
+            st.session_state.wallet_thread = thread
+            print("✅ Wallet monitor thread started.")
+        except Exception as e:
+            print("❌ Failed to start wallet monitor thread:", e)
