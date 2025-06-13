@@ -6,11 +6,24 @@ import requests
 import os
 import re
 
-st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
+st.set_page_config(page_title="Solana Dashboard", layout="wide")
 
-print("⚙️ Calling init_wallet_monitor()...")
+# Optional custom styling
+st.markdown("""
+    <style>
+        .metric-label { font-size: 18px !important; font-weight: 500; }
+        .block-container { padding-top: 1rem; }
+        .chat-message { margin-bottom: 0.75rem; }
+        .chat-message-user { color: #1f77b4; font-weight: bold; }
+        .chat-message-bot { color: #2ca02c; font-weight: bold; }
+        .emoji-title { font-size: 28px !important; margin-bottom: 0.5rem; }
+    </style>
+""", unsafe_allow_html=True)
+
+# Initialize wallet monitor
+print("⚙️ Starting wallet monitor...")
 init_wallet_monitor()
-print("✅ init_wallet_monitor() call completed.")
+print("✅ Wallet monitor initialized.")
 
 def evaluate_trend_by_category(df):
     latest = df.iloc[-1]
@@ -63,8 +76,8 @@ def evaluate_trend_by_category(df):
         }
 
     summary["overall"] = {
-        "bullish_score": int(total_bullish),
-        "bearish_score": int(total_bearish),
+        "bullish_score": total_bullish,
+        "bearish_score": total_bearish,
         "trend": "BULLISH" if total_bullish > total_bearish else "BEARISH"
     }
     return summary
@@ -86,7 +99,7 @@ def build_trend_summary(summary):
     return "\n".join(lines)
 
 try:
-    with st.spinner("📡 Loading SOL trend data..."):
+    with st.spinner("📡 Loading Solana trend data..."):
         df = get_binance_sol_ohlcv(limit=1000)
         df = calc_indicators(df)
         trend = evaluate_trend_by_category(df)
@@ -98,21 +111,20 @@ try:
     def send_telegram_alert(summary):
         if not bot_token or not chat_id:
             return
-        bullish_reasons = []
-        bearish_reasons = []
+        bullish, bearish = [], []
         for category in ["momentum", "trend", "volatility", "volume"]:
             for label, result in summary[category]["details"].items():
-                if result and len(bullish_reasons) < 3:
-                    bullish_reasons.append(f"✅ {label}")
-                elif not result and len(bearish_reasons) < 3:
-                    bearish_reasons.append(f"❌ {label}")
+                if result and len(bullish) < 3:
+                    bullish.append(f"✅ {label}")
+                elif not result and len(bearish) < 3:
+                    bearish.append(f"❌ {label}")
         text = (
             f"📈 Trend Flip Alert!\n"
             f"New Trend: {summary['overall']['trend']}\n"
             f"Bullish: {summary['overall']['bullish_score']}\n"
             f"Bearish: {summary['overall']['bearish_score']}\n\n"
-            f"🔼 Bullish Signals:\n" + "\n".join(bullish_reasons) + "\n\n"
-            f"🔽 Bearish Signals:\n" + "\n".join(bearish_reasons)
+            f"🔼 Bullish Signals:\n" + "\n".join(bullish) + "\n\n"
+            f"🔽 Bearish Signals:\n" + "\n".join(bearish)
         )
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         requests.post(url, data={"chat_id": chat_id, "text": text})
@@ -130,22 +142,23 @@ try:
 
     check_and_alert_trend(trend)
 
-    st.title("📈 Solana (SOL) Trend Dashboard")
-    st.subheader("🌿 Overall Trend Summary")
-    st.metric("Bullish Signals", trend["overall"]["bullish_score"])
-    st.metric("Bearish Signals", trend["overall"]["bearish_score"])
-    st.metric("Trend", trend["overall"]["trend"])
+    # === Main Dashboard ===
+    st.markdown("### 📈 Solana (SOL) Trend Dashboard", unsafe_allow_html=True)
 
-    st.subheader("📁 Category Breakdown")
+    cols = st.columns(3)
+    cols[0].metric("📊 Bullish Signals", trend["overall"]["bullish_score"])
+    cols[1].metric("📉 Bearish Signals", trend["overall"]["bearish_score"])
+    cols[2].metric("📣 Trend", trend["overall"]["trend"])
+
+    st.markdown("### 📂 Indicator Breakdown")
     for category in ["momentum", "trend", "volatility", "volume"]:
         if category in trend:
             cat_summary = trend[category]
             bullish = cat_summary["bullish"]
             total = len(cat_summary["details"])
-            bullish_ratio = bullish / total
-
-            with st.expander(f"📂 {category.capitalize()} — {bullish}/{total} bullish"):
-                st.progress(bullish_ratio)
+            ratio = bullish / total
+            with st.expander(f"📁 {category.capitalize()} — {bullish}/{total} bullish"):
+                st.progress(ratio)
                 for label, result in cat_summary["details"].items():
                     col1, col2 = st.columns([0.1, 0.9])
                     with col1:
@@ -153,7 +166,7 @@ try:
                     with col2:
                         st.markdown(f"**{label}**")
 
-    st.subheader("📉 Price with SMAs")
+    st.markdown("### 🧮 Price & SMAs")
     fig, ax = plt.subplots(figsize=(10, 4))
     df[["close", "sma_20", "sma_50", "sma_200"]].plot(ax=ax)
     ax.set_title("Price with SMAs")
@@ -161,20 +174,18 @@ try:
 
     def plot_indicator(name, cols):
         if all(col in df.columns for col in cols):
-            st.subheader(name)
+            st.markdown(f"### {name}")
             st.line_chart(df[cols])
-        else:
-            st.warning(f"{name} not available.")
 
-    # Only keep RSI and MACD
     plot_indicator("RSI", ["rsi"])
     plot_indicator("MACD", ["macd", "macd_signal"])
 
 except Exception as e:
     st.error(f"❌ Failed to load dashboard: {e}")
 
+# === Chat Section ===
 st.divider()
-st.title("💬 Chat with TinyLlama")
+st.markdown("### 💬 Chat with TinyLlama")
 
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
@@ -204,15 +215,20 @@ if user_input:
     st.session_state.chat_history.append(("🤖", reply))
 
 for speaker, msg in st.session_state.chat_history:
-    st.markdown(f"**{speaker}**: {msg}")
+    speaker_class = "chat-message-user" if speaker == "🧑" else "chat-message-bot"
+    st.markdown(f"<div class='chat-message'><span class='{speaker_class}'>{speaker}</span>: {msg}</div>", unsafe_allow_html=True)
 
-# 🧼 Sanitize debug log before display
-with st.sidebar.expander("🪵 Wallet Debug Log"):
-    log_path = "/tmp/helius_poll_log.txt"
-    if os.path.exists(log_path):
-        with open(log_path) as f:
-            raw_log = f.read()
-            sanitized_log = re.sub(r'api-key=[\w-]+', 'api-key=***REDACTED***', raw_log)
+# === Wallet Debug Log on Main Page ===
+st.divider()
+st.markdown("### 🪵 Wallet Debug Log")
+
+log_path = "/tmp/helius_poll_log.txt"
+if os.path.exists(log_path):
+    with open(log_path) as f:
+        raw_log = f.read()
+        sanitized_log = re.sub(r'api-key=[\w-]+', 'api-key=***REDACTED***', raw_log)
+        with st.expander("📜 Show Raw Log"):
             st.code(sanitized_log, language="text")
-    else:
-        st.info("No log file yet.")
+        st.download_button("⬇️ Download Log", sanitized_log, file_name="wallet_log.txt")
+else:
+    st.info("No log file yet.")
