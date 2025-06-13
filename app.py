@@ -201,9 +201,11 @@ for speaker, msg in st.session_state.chat_history:
 
 
 
-with st.sidebar.expander("📡 Live Wallet Activity"):
-    if TX_LOG:
-        for tx in TX_LOG[-5:][::-1]:
-            st.write(f"🔁 Transaction: {tx.get('signature', 'N/A')}")
-    else:
-        st.info("Waiting for wallet activity...")
+with st.sidebar.expander("🪵 Wallet Debug Log"):
+    try:
+        with open("/tmp/helius_log.txt", "r") as f:
+            logs = f.read()
+        st.code(logs[-2000:] or "No logs yet.")
+    except:
+        st.info("No log file yet.")
+
