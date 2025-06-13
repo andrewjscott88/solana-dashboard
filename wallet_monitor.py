@@ -24,12 +24,8 @@ def on_message(ws, message):
 
 def on_open(ws):
     try:
-        HELIUS_API_KEY = st.secrets.get("HELIUS_API_KEY2") or st.secrets.get("HELIUS_API_KEY")
-        WALLET_ADDRESS = st.secrets.get("SOLANA_WALLET")
-        if not HELIUS_API_KEY or not WALLET_ADDRESS:
-            raise RuntimeError("❌ Missing HELIUS_API_KEY or WALLET_ADDRESS in secrets.")
-
-        log(f"🔌 Subscribing to {WALLET_ADDRESS}")
+        WALLET_ADDRESS = st.secrets["SOLANA_WALLET"]
+        log(f"🔌 WebSocket opened. Subscribing to {WALLET_ADDRESS}")
         subscribe_msg = {
             "type": "subscribe",
             "channels": [
@@ -40,22 +36,27 @@ def on_open(ws):
             ]
         }
         ws.send(json.dumps(subscribe_msg))
-        log("📤 Helius subscription sent.")
+        log("📤 Subscription sent.")
     except Exception as e:
         log(f"❌ Error in on_open: {e}")
 
+
 def start_wallet_monitor():
     try:
-        log(f"🧪 Secrets loaded: {list(st.secrets.keys())}")
-        HELIUS_API_KEY = st.secrets.get("HELIUS_API_KEY2") or st.secrets.get("HELIUS_API_KEY")
-        if not HELIUS_API_KEY:
-            raise RuntimeError("❌ Missing Helius API key in secrets.")
-        ws_url = f"wss://rpc.helius.xyz/v0/stream/{HELIUS_API_KEY}"
+        HELIUS_API_KEY = st.secrets["HELIUS_API_KEY2"]
+        ws_url = f"wss://stream.helius.xyz/v0/transactions?api-key={HELIUS_API_KEY}"
         log(f"🌐 Connecting to {ws_url}")
-        ws = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message)
+        ws = websocket.WebSocketApp(
+            ws_url,
+            on_open=on_open,
+            on_message=on_message,
+            on_error=lambda ws, err: log(f"❌ WebSocket error: {err}"),
+            on_close=lambda ws, code, msg: log(f"🔌 WebSocket closed: {code} - {msg}")
+        )
         ws.run_forever()
     except Exception as e:
         log(f"❌ Error starting monitor: {e}")
+
 
 
 def init_wallet_monitor():
