@@ -2,9 +2,10 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from sol_trend import get_binance_sol_ohlcv, calc_indicators
 from polling_wallet_monitor import init_wallet_monitor, TX_LOG
-import os, requests
+import requests
+import os
 
-# Fix: set_page_config must come before any other Streamlit commands
+# Must be first
 st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
 
 print("⚙️ Calling init_wallet_monitor()...")
@@ -66,7 +67,6 @@ def evaluate_trend_by_category(df):
         "bearish_score": int(total_bearish),
         "trend": "BULLISH" if total_bullish > total_bearish else "BEARISH"
     }
-
     return summary
 
 def build_trend_summary(summary):
@@ -86,12 +86,13 @@ def build_trend_summary(summary):
     return "\n".join(lines)
 
 try:
-    df = get_binance_sol_ohlcv(limit=1000)
-    df = calc_indicators(df)
-    trend = evaluate_trend_by_category(df)
+    with st.spinner("📡 Loading SOL trend data..."):
+        df = get_binance_sol_ohlcv(limit=1000)
+        df = calc_indicators(df)
+        trend = evaluate_trend_by_category(df)
 
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")
+    bot_token = st.secrets.get("TELEGRAM_BOT_TOKEN")
+    chat_id = st.secrets.get("TELEGRAM_CHAT_ID")
     log_file = "trend_state.txt"
 
     def send_telegram_alert(summary):
@@ -141,6 +142,8 @@ try:
         if category in trend:
             with cols[i % 2]:
                 st.metric(label=category.capitalize(), value=trend[category]["score"])
+                bullish_ratio = trend[category]["bullish"] / len(trend[category]["details"])
+                st.progress(bullish_ratio)
                 with st.expander(f"{category.capitalize()} Details"):
                     for label, result in trend[category]["details"].items():
                         emoji = "✅" if result else "❌"
@@ -181,14 +184,19 @@ user_input = st.chat_input("Ask TinyLlama about the trend, crypto, or anything..
 if user_input:
     st.session_state.chat_history.append(("🧑", user_input))
     context = build_trend_summary(trend)
-    prompt = f"""You are a crypto trading assistant. Use the Solana market data below:
-
+    prompt = f"""
+### Market Context:
 {context}
 
-Now answer: {user_input}"""
+### User Question:
+{user_input}
+
+### Response (keep it focused and insightful):
+"""
     try:
+        tinyllama_url = st.secrets.get("TINYLLAMA_ENDPOINT")
         response = requests.post(
-            "http://213.173.105.84:22540/api/generate",
+            tinyllama_url,
             json={"model": "tinyllama", "prompt": prompt, "stream": False}
         )
         reply = response.json()["response"]
@@ -199,13 +207,9 @@ Now answer: {user_input}"""
 for speaker, msg in st.session_state.chat_history:
     st.markdown(f"**{speaker}**: {msg}")
 
-
-
 with st.sidebar.expander("🪵 Wallet Debug Log"):
     if os.path.exists("/tmp/helius_poll_log.txt"):
         with open("/tmp/helius_poll_log.txt") as f:
             st.code(f.read(), language="text")
     else:
         st.info("No log file yet.")
-
-
