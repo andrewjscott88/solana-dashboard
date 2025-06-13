@@ -46,6 +46,7 @@ def on_open(ws):
 
 def start_wallet_monitor():
     try:
+        log(f"🧪 Secrets loaded: {list(st.secrets.keys())}")
         HELIUS_API_KEY = st.secrets.get("HELIUS_API_KEY2") or st.secrets.get("HELIUS_API_KEY")
         if not HELIUS_API_KEY:
             raise RuntimeError("❌ Missing Helius API key in secrets.")
@@ -55,6 +56,7 @@ def start_wallet_monitor():
         ws.run_forever()
     except Exception as e:
         log(f"❌ Error starting monitor: {e}")
+
 
 def init_wallet_monitor():
     if "wallet_thread" not in st.session_state:
