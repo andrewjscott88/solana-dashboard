@@ -5,18 +5,11 @@ import streamlit as st
 import os
 
 TX_LOG = st.session_state.setdefault("wallet_log", [])
-
 LOG_FILE = "/tmp/helius_log.txt"
 
 def log(msg):
     with open(LOG_FILE, "a") as f:
         f.write(msg + "\n")
-
-HELIUS_API_KEY = st.secrets.get("HELIUS_API_KEY2") or st.secrets.get("HELIUS_API_KEY")
-
-if not HELIUS_API_KEY:
-    raise RuntimeError("❌ Missing Helius API key in secrets.")
-
 
 def on_message(ws, message):
     log("📨 Message received:")
@@ -31,10 +24,12 @@ def on_message(ws, message):
 
 def on_open(ws):
     try:
-        
-        WALLET_ADDRESS = st.secrets["SOLANA_WALLET"]
-        log(f"🔌 Subscribing to {WALLET_ADDRESS}")
+        HELIUS_API_KEY = st.secrets.get("HELIUS_API_KEY2") or st.secrets.get("HELIUS_API_KEY")
+        WALLET_ADDRESS = st.secrets.get("SOLANA_WALLET")
+        if not HELIUS_API_KEY or not WALLET_ADDRESS:
+            raise RuntimeError("❌ Missing HELIUS_API_KEY or WALLET_ADDRESS in secrets.")
 
+        log(f"🔌 Subscribing to {WALLET_ADDRESS}")
         subscribe_msg = {
             "type": "subscribe",
             "channels": [
@@ -51,7 +46,9 @@ def on_open(ws):
 
 def start_wallet_monitor():
     try:
-        
+        HELIUS_API_KEY = st.secrets.get("HELIUS_API_KEY2") or st.secrets.get("HELIUS_API_KEY")
+        if not HELIUS_API_KEY:
+            raise RuntimeError("❌ Missing Helius API key in secrets.")
         ws_url = f"wss://rpc.helius.xyz/v0/stream/{HELIUS_API_KEY}"
         log(f"🌐 Connecting to {ws_url}")
         ws = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message)
