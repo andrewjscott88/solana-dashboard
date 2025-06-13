@@ -18,7 +18,10 @@ def poll_wallet_transactions():
     try:
         api_key = st.secrets["HELIUS_API_KEY2"]
         wallet = st.secrets["SOLANA_WALLET"]
-        url = f"https://api.helius.xyz/v0/addresses/{wallet}/transactions?api-key={api_key}&limit=5"
+        url = f"https://api.helius.xyz/v0/addresses/{wallet}/transactions?api-key={api_key}&page=1&limit=5"
+
+
+
 
         seen_signatures = set()
 
