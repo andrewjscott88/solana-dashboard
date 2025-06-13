@@ -1,7 +1,7 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 from sol_trend import get_binance_sol_ohlcv, calc_indicators
-from wallet_monitor import init_wallet_monitor, TX_LOG
+from polling_wallet_monitor import init_wallet_monitor, TX_LOG
 import os, requests
 
 # Fix: set_page_config must come before any other Streamlit commands
