@@ -25,6 +25,9 @@ def poll_wallet_transactions():
                 response = requests.get(url)
                 response.raise_for_status()
                 txs = response.json()
+                
+                print(f"🔍 Polled {len(data.get('transactions', []))} transactions...")
+
 
                 for tx in txs:
                     sig = tx.get("signature")
