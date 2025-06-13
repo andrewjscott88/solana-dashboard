@@ -7,6 +7,10 @@ import os, requests
 # Fix: set_page_config must come before any other Streamlit commands
 st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
 
+print("⚙️ Calling init_wallet_monitor()...")
+init_wallet_monitor()
+print("✅ init_wallet_monitor() call completed.")
+
 def evaluate_trend_by_category(df):
     latest = df.iloc[-1]
     categories = {
@@ -195,9 +199,7 @@ Now answer: {user_input}"""
 for speaker, msg in st.session_state.chat_history:
     st.markdown(f"**{speaker}**: {msg}")
 
-print("⚙️ Calling init_wallet_monitor()...")
-init_wallet_monitor()
-print("✅ init_wallet_monitor() call completed.")
+
 
 with st.sidebar.expander("📡 Live Wallet Activity"):
     if TX_LOG:
