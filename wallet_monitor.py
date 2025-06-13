@@ -25,7 +25,7 @@ def on_message(ws, message):
 
 def on_open(ws):
     try:
-        HELIUS_API_KEY = st.secrets["HELIUS_API_KEY"]
+        HELIUS_API_KEY = st.secrets["HELIUS_API_KEY2"]
         WALLET_ADDRESS = st.secrets["SOLANA_WALLET"]
         log(f"🔌 Subscribing to {WALLET_ADDRESS}")
 
@@ -45,7 +45,7 @@ def on_open(ws):
 
 def start_wallet_monitor():
     try:
-        HELIUS_API_KEY = st.secrets["HELIUS_API_KEY"]
+        HELIUS_API_KEY = st.secrets["HELIUS_API_KEY2"]
         ws_url = f"wss://rpc.helius.xyz/v0/stream/{HELIUS_API_KEY}"
         log(f"🌐 Connecting to {ws_url}")
         ws = websocket.WebSocketApp(ws_url, on_open=on_open, on_message=on_message)
