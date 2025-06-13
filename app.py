@@ -4,6 +4,7 @@ from sol_trend import get_binance_sol_ohlcv, calc_indicators
 from polling_wallet_monitor import init_wallet_monitor, TX_LOG
 import requests
 import os
+import re
 
 # Must be first
 st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
@@ -149,7 +150,7 @@ try:
                         emoji = "✅" if result else "❌"
                         st.write(f"{emoji} {label}")
 
-    st.subheader("📉 Price + SMAs")
+    st.subheader("📉 Price with SMAs")
     fig, ax = plt.subplots(figsize=(10, 4))
     df[["close", "sma_20", "sma_50", "sma_200"]].plot(ax=ax)
     ax.set_title("Price with SMAs")
@@ -162,14 +163,9 @@ try:
         else:
             st.warning(f"{name} not available.")
 
-    for name, cols in {
-        "RSI": ["rsi"], "MACD": ["macd", "macd_signal"], "ROC": ["roc"],
-        "CCI": ["cci"], "Ultimate Oscillator (UO)": ["uo"],
-        "Stochastic Oscillator": ["stoch_k", "stoch_d"],
-        "Williams %R": ["williams_r"], "ADX + DI": ["adx", "+DI", "-DI"],
-        "OBV": ["obv"], "Chaikin Money Flow (CMF)": ["cmf"],
-        "Accumulation/Distribution (AD)": ["ad"]
-    }.items(): plot_indicator(name, cols)
+    # Only keep RSI and MACD
+    plot_indicator("RSI", ["rsi"])
+    plot_indicator("MACD", ["macd", "macd_signal"])
 
 except Exception as e:
     st.error(f"❌ Failed to load dashboard: {e}")
@@ -207,9 +203,14 @@ if user_input:
 for speaker, msg in st.session_state.chat_history:
     st.markdown(f"**{speaker}**: {msg}")
 
+# 🧼 Sanitize debug log before display
 with st.sidebar.expander("🪵 Wallet Debug Log"):
-    if os.path.exists("/tmp/helius_poll_log.txt"):
-        with open("/tmp/helius_poll_log.txt") as f:
-            st.code(f.read(), language="text")
+    log_path = "/tmp/helius_poll_log.txt"
+    if os.path.exists(log_path):
+        with open(log_path) as f:
+            raw_log = f.read()
+            # Redact API key
+            sanitized_log = re.sub(r'api-key=[\w-]+', 'api-key=***REDACTED***', raw_log)
+            st.code(sanitized_log, language="text")
     else:
         st.info("No log file yet.")
