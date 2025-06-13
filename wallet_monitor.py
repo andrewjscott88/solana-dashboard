@@ -1,8 +1,8 @@
-
 import threading
 import websocket
 import json
 import streamlit as st
+import os
 
 TX_LOG = st.session_state.setdefault("wallet_log", [])
 
@@ -12,9 +12,8 @@ def on_message(ws, message):
         TX_LOG.append(data)
 
 def on_open(ws):
-    from streamlit.runtime.secrets import get_secret
-    HELIUS_API_KEY = get_secret("HELIUS_API_KEY")
-    WALLET_ADDRESS = get_secret("SOLANA_WALLET")
+    HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
+    WALLET_ADDRESS = os.getenv("SOLANA_WALLET")
     subscribe_msg = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -28,8 +27,7 @@ def on_open(ws):
     ws.send(json.dumps(subscribe_msg))
 
 def start_wallet_monitor():
-    from streamlit.runtime.secrets import get_secret
-    HELIUS_API_KEY = get_secret("HELIUS_API_KEY")
+    HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
     ws_url = f"wss://rpc.helius.xyz/?api-key={HELIUS_API_KEY}"
     ws = websocket.WebSocketApp(ws_url, on_message=on_message, on_open=on_open)
     ws.run_forever()

@@ -1,12 +1,11 @@
 import streamlit as st
 import matplotlib.pyplot as plt
 from sol_trend import get_binance_sol_ohlcv, calc_indicators
-
 from wallet_monitor import init_wallet_monitor, TX_LOG
+import os, requests
 
-
-
-
+# Fix: set_page_config must come before any other Streamlit commands
+st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
 
 def evaluate_trend_by_category(df):
     latest = df.iloc[-1]
@@ -82,26 +81,18 @@ def build_trend_summary(summary):
         lines.append("")
     return "\n".join(lines)
 
-
-st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
-st.title("📈 Solana (SOL) Trend Dashboard")
-
 try:
     df = get_binance_sol_ohlcv(limit=1000)
     df = calc_indicators(df)
     trend = evaluate_trend_by_category(df)
 
-    # --- Telegram alert setup ---
-    import os, requests
-    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")  # Set in Streamlit Secrets or env
-    chat_id = os.getenv("TELEGRAM_CHAT_ID")      # Set in Streamlit Secrets or env
+    bot_token = os.getenv("TELEGRAM_BOT_TOKEN")
+    chat_id = os.getenv("TELEGRAM_CHAT_ID")
     log_file = "trend_state.txt"
 
     def send_telegram_alert(summary):
         if not bot_token or not chat_id:
             return
-
-        # Extract up to 3 top bullish/bearish reasons from all categories
         bullish_reasons = []
         bearish_reasons = []
         for category in ["momentum", "trend", "volatility", "volume"]:
@@ -110,7 +101,6 @@ try:
                     bullish_reasons.append(f"✅ {label}")
                 elif not result and len(bearish_reasons) < 3:
                     bearish_reasons.append(f"❌ {label}")
-
         text = (
             f"📈 Trend Flip Alert!\n"
             f"New Trend: {summary['overall']['trend']}\n"
@@ -119,10 +109,8 @@ try:
             f"🔼 Bullish Signals:\n" + "\n".join(bullish_reasons) + "\n\n"
             f"🔽 Bearish Signals:\n" + "\n".join(bearish_reasons)
         )
-
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         requests.post(url, data={"chat_id": chat_id, "text": text})
-
 
     def check_and_alert_trend(summary):
         new_trend = summary["overall"]["trend"]
@@ -137,6 +125,7 @@ try:
 
     check_and_alert_trend(trend)
 
+    st.title("📈 Solana (SOL) Trend Dashboard")
     st.subheader("🌿 Overall Trend Summary")
     st.metric("Bullish Signals", trend["overall"]["bullish_score"])
     st.metric("Bearish Signals", trend["overall"]["bearish_score"])
@@ -157,8 +146,6 @@ try:
     fig, ax = plt.subplots(figsize=(10, 4))
     df[["close", "sma_20", "sma_50", "sma_200"]].plot(ax=ax)
     ax.set_title("Price with SMAs")
-    ax.set_ylabel("Price")
-    ax.set_xlabel("")
     st.pyplot(fig)
 
     def plot_indicator(name, cols):
@@ -168,78 +155,47 @@ try:
         else:
             st.warning(f"{name} not available.")
 
-    plot_indicator("RSI", ["rsi"])
-    plot_indicator("MACD", ["macd", "macd_signal"])
-    plot_indicator("ROC", ["roc"])
-    plot_indicator("CCI", ["cci"])
-    plot_indicator("Ultimate Oscillator (UO)", ["uo"])
-    plot_indicator("Stochastic Oscillator", ["stoch_k", "stoch_d"])
-    plot_indicator("Williams %R", ["williams_r"])
-    plot_indicator("ADX + DI", ["adx", "+DI", "-DI"])
-    plot_indicator("OBV", ["obv"])
-    plot_indicator("Chaikin Money Flow (CMF)", ["cmf"])
-    plot_indicator("Accumulation/Distribution (AD)", ["ad"])
+    for name, cols in {
+        "RSI": ["rsi"], "MACD": ["macd", "macd_signal"], "ROC": ["roc"],
+        "CCI": ["cci"], "Ultimate Oscillator (UO)": ["uo"],
+        "Stochastic Oscillator": ["stoch_k", "stoch_d"],
+        "Williams %R": ["williams_r"], "ADX + DI": ["adx", "+DI", "-DI"],
+        "OBV": ["obv"], "Chaikin Money Flow (CMF)": ["cmf"],
+        "Accumulation/Distribution (AD)": ["ad"]
+    }.items(): plot_indicator(name, cols)
 
 except Exception as e:
     st.error(f"❌ Failed to load dashboard: {e}")
-    
 
 st.divider()
 st.title("💬 Chat with TinyLlama")
 
-# Store chat history in session
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# Input box
 user_input = st.chat_input("Ask TinyLlama about the trend, crypto, or anything...")
-
-# Build context from market trend
-def build_trend_summary(summary):
-    lines = [
-        f"Current trend: {summary['overall']['trend']}",
-        f"Bullish: {summary['overall']['bullish_score']}",
-        f"Bearish: {summary['overall']['bearish_score']}"
-    ]
-    for cat in ["momentum", "trend", "volatility", "volume"]:
-        if cat in summary:
-            lines.append(f"\n{cat.upper()} ({summary[cat]['score']}):")
-            for label, passed in summary[cat]["details"].items():
-                lines.append(f"{'✅' if passed else '❌'} {label}")
-    return "\n".join(lines)
-
 if user_input:
     st.session_state.chat_history.append(("🧑", user_input))
-
-    # Combine context + question
     context = build_trend_summary(trend)
-    prompt = f"""You are a crypto trading assistant. Use the following Solana (SOL) market data to help answer user questions.
+    prompt = f"""You are a crypto trading assistant. Use the Solana market data below:
 
 {context}
 
-Now answer: {user_input}
-"""
-
+Now answer: {user_input}"""
     try:
-        TINYLLAMA_URL = "http://213.173.105.84:22540"  # Replace with your public endpoint
         response = requests.post(
-            f"{TINYLLAMA_URL}/api/generate",
+            "http://213.173.105.84:22540/api/generate",
             json={"model": "tinyllama", "prompt": prompt, "stream": False}
         )
         reply = response.json()["response"]
     except Exception as e:
         reply = f"⚠️ Error connecting to TinyLlama: {e}"
-
     st.session_state.chat_history.append(("🤖", reply))
 
-# Show history
 for speaker, msg in st.session_state.chat_history:
     st.markdown(f"**{speaker}**: {msg}")
 
-
-# Start monitoring
 init_wallet_monitor()
-
 with st.sidebar.expander("📡 Live Wallet Activity"):
     if TX_LOG:
         for tx in TX_LOG[-5:][::-1]:
