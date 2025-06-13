@@ -7,13 +7,17 @@ import os
 TX_LOG = st.session_state.setdefault("wallet_log", [])
 
 def on_message(ws, message):
+    print("📨 Received message:", message)
     data = json.loads(message)
     if data.get("type") == "transaction":
         TX_LOG.append(data)
 
+
 def on_open(ws):
-    HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
-    WALLET_ADDRESS = os.getenv("SOLANA_WALLET")
+    print("✅ WebSocket opened.")
+    HELIUS_API_KEY = st.secrets["HELIUS_API_KEY"]
+    WALLET_ADDRESS = st.secrets["SOLANA_WALLET"]
+    print(f"📡 Subscribing to: {WALLET_ADDRESS}")
     subscribe_msg = {
         "jsonrpc": "2.0",
         "id": 1,
@@ -25,6 +29,7 @@ def on_open(ws):
         }
     }
     ws.send(json.dumps(subscribe_msg))
+
 
 def start_wallet_monitor():
     HELIUS_API_KEY = os.getenv("HELIUS_API_KEY")
