@@ -202,10 +202,10 @@ for speaker, msg in st.session_state.chat_history:
 
 
 with st.sidebar.expander("🪵 Wallet Debug Log"):
-    try:
-        with open("/tmp/helius_log.txt", "r") as f:
-            logs = f.read()
-        st.code(logs[-2000:] or "No logs yet.")
-    except:
+    if os.path.exists("/tmp/helius_poll_log.txt"):
+        with open("/tmp/helius_poll_log.txt") as f:
+            st.code(f.read(), language="text")
+    else:
         st.info("No log file yet.")
+
 

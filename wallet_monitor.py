@@ -4,6 +4,7 @@ import threading
 import requests
 import time
 import streamlit as st
+import os
 
 TX_LOG = st.session_state.setdefault("wallet_log", [])
 LOG_FILE = "/tmp/helius_poll_log.txt"
@@ -13,6 +14,7 @@ def log(msg):
         f.write(msg + "\n")
 
 def poll_wallet_transactions():
+    log("🚀 poll_wallet_transactions() started.")
     try:
         api_key = st.secrets["HELIUS_API_KEY2"]
         wallet = st.secrets["SOLANA_WALLET"]
@@ -25,9 +27,8 @@ def poll_wallet_transactions():
                 response = requests.get(url)
                 response.raise_for_status()
                 txs = response.json()
-                
-                print(f"🔍 Polled {len(data.get('transactions', []))} transactions...")
 
+                log(f"🔍 Polled {len(txs)} transactions...")
 
                 for tx in txs:
                     sig = tx.get("signature")
@@ -39,7 +40,7 @@ def poll_wallet_transactions():
                 time.sleep(10)  # Poll every 10 seconds
             except Exception as e:
                 log(f"❌ Polling error: {e}")
-                time.sleep(15)  # Wait longer after error
+                time.sleep(15)
     except Exception as e:
         log(f"❌ Setup error: {e}")
 
