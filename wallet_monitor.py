@@ -1,71 +1,50 @@
+# polling_wallet_monitor.py — Helius HTTP polling fallback
+
 import threading
-import websocket
-import json
+import requests
+import time
 import streamlit as st
-import os
 
 TX_LOG = st.session_state.setdefault("wallet_log", [])
-LOG_FILE = "/tmp/helius_log.txt"
+LOG_FILE = "/tmp/helius_poll_log.txt"
 
 def log(msg):
     with open(LOG_FILE, "a") as f:
         f.write(msg + "\n")
 
-def on_message(ws, message):
-    log("📨 Message received:")
-    log(message)
+def poll_wallet_transactions():
     try:
-        data = json.loads(message)
-        if data.get("type") == "transaction":
-            TX_LOG.append(data)
-            log("✅ Transaction added to TX_LOG")
+        api_key = st.secrets["HELIUS_API_KEY2"]
+        wallet = st.secrets["SOLANA_WALLET"]
+        url = f"https://api.helius.xyz/v0/addresses/{wallet}/transactions?api-key={api_key}&limit=5"
+
+        seen_signatures = set()
+
+        while True:
+            try:
+                response = requests.get(url)
+                response.raise_for_status()
+                txs = response.json()
+
+                for tx in txs:
+                    sig = tx.get("signature")
+                    if sig and sig not in seen_signatures:
+                        TX_LOG.append(tx)
+                        seen_signatures.add(sig)
+                        log(f"✅ New transaction: {sig}")
+
+                time.sleep(10)  # Poll every 10 seconds
+            except Exception as e:
+                log(f"❌ Polling error: {e}")
+                time.sleep(15)  # Wait longer after error
     except Exception as e:
-        log(f"❌ Error parsing message: {e}")
-
-def on_open(ws):
-    try:
-        WALLET_ADDRESS = st.secrets["SOLANA_WALLET"]
-        log(f"🔌 WebSocket opened. Subscribing to {WALLET_ADDRESS}")
-        subscribe_msg = {
-            "type": "subscribe",
-            "channels": [
-                {
-                    "name": "transactions",
-                    "accounts": [WALLET_ADDRESS]
-                }
-            ]
-        }
-        ws.send(json.dumps(subscribe_msg))
-        log("📤 Subscription sent.")
-    except Exception as e:
-        log(f"❌ Error in on_open: {e}")
-
-
-
-def start_wallet_monitor():
-    try:
-        HELIUS_API_KEY = st.secrets["HELIUS_API_KEY2"]
-        ws_url = f"wss://stream.helius.xyz/v0/transactions?api-key={HELIUS_API_KEY}"
-        log(f"🌐 Connecting to {ws_url}")
-        ws = websocket.WebSocketApp(
-            ws_url,
-            on_open=on_open,
-            on_message=on_message,
-            on_error=lambda ws, err: log(f"❌ WebSocket error: {err}"),
-            on_close=lambda ws, code, msg: log(f"🔌 WebSocket closed: {code} - {msg}")
-        )
-        ws.run_forever()
-    except Exception as e:
-        log(f"❌ Error starting monitor: {e}")
-
-
-
+        log(f"❌ Setup error: {e}")
 
 def init_wallet_monitor():
     if "wallet_thread" not in st.session_state:
-        log("🧵 Starting wallet monitor thread...")
-        thread = threading.Thread(target=start_wallet_monitor)
+        log("🧵 Starting wallet polling thread...")
+        thread = threading.Thread(target=poll_wallet_transactions)
         thread.daemon = True
         thread.start()
         st.session_state.wallet_thread = thread
-        log("✅ Wallet monitor thread started.")
+        log("✅ Wallet polling thread started.")
