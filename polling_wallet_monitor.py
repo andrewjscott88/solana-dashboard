@@ -9,35 +9,44 @@ def log(msg):
 
 def poll_wallet_transactions():
     log("🚀 poll_wallet_transactions() started.")
-    api_key = st.secrets["HELIUS_API_KEY"]
-    wallet = st.secrets["SOLANA_WALLET"]
-    # Try both URL formats if needed
-    url = f"https://api.helius.xyz/v0/addresses/{wallet}/transactions/?api-key={api_key}"
-    # url = f"https://api.helius.xyz/v0/addresses/{wallet}/transactions/?api-key={api_key}"
+    try:
+        api_key = st.secrets["HELIUS_API_KEY"]
+        wallet = st.secrets["SOLANA_WALLET"]
 
-    seen = set()
-    while True:
-        try:
-            log(f"🌐 Polling URL: {url}")
-            resp = requests.get(url)
-            if resp.status_code == 400:
-                log("❌ Bad Request 400 — check wallet/API key validity")
-                time.sleep(30)
-                continue
-            resp.raise_for_status()
-            txs = resp.json()
-            log(f"🔍 Retrieved {len(txs)} tx(s)")
+        seen = set()
+        while True:
+            try:
+                # 1️⃣ Fetch recent signature list via JSON-RPC
+                rpc_resp = requests.post(
+                    "https://mainnet.helius-rpc.com/",
+                    json={"jsonrpc":"2.0","id":1,"method":"getSignaturesForAddress","params":[wallet,{"limit":5}]}
+                )
+                rpc_resp.raise_for_status()
+                sigs = [item["signature"] for item in rpc_resp.json().get("result", [])]
+                log(f"🔍 Got {len(sigs)} signatures")
 
-            for tx in txs:
-                sig = tx.get("signature")
-                if sig and sig not in seen:
-                    seen.add(sig)
-                    TX_LOG.append(tx)
-                    log(f"✅ New transaction: {sig}")
-            time.sleep(10)
-        except Exception as e:
-            log(f"❌ Polling error: {e}")
-            time.sleep(15)
+                if sigs:
+                    # 2️⃣ POST to decode transactions
+                    url = f"https://api.helius.xyz/v0/transactions?api-key={api_key}"
+                    log(f"🌐 Decoding via POST to {url}")
+                    dec_resp = requests.post(url, json={"transactions": sigs})
+                    dec_resp.raise_for_status()
+                    decs = dec_resp.json()
+                    log(f"✅ Decoded {len(decs)} transactions")
+
+                    for tx in decs:
+                        sig = tx.get("signature")
+                        if sig and sig not in seen:
+                            seen.add(sig)
+                            TX_LOG.append(tx)
+                            log(f"🟢 New decoded TX: {sig}")
+
+                time.sleep(10)
+            except Exception as e:
+                log(f"❌ Polling error: {e}")
+                time.sleep(15)
+    except Exception as e:
+        log(f"❌ Setup error: {e}")
 
 def init_wallet_monitor():
     if "wallet_thread" not in st.session_state:
