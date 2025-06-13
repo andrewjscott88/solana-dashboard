@@ -1,5 +1,6 @@
 import streamlit as st
 import matplotlib.pyplot as plt
+from PIL import Image
 from sol_trend import get_binance_sol_ohlcv, calc_indicators
 from polling_wallet_monitor import init_wallet_monitor, TX_LOG
 import requests
@@ -8,23 +9,30 @@ import re
 
 st.set_page_config(page_title="Solana Dashboard", layout="wide")
 
-# Optional custom styling
+# === Hide Streamlit header/footer and adjust padding
 st.markdown("""
     <style>
+        #MainMenu, header, footer {visibility: hidden;}
+        .block-container {padding-top: 0rem;}
         .metric-label { font-size: 18px !important; font-weight: 500; }
-        .block-container { padding-top: 1rem; }
         .chat-message { margin-bottom: 0.75rem; }
         .chat-message-user { color: #1f77b4; font-weight: bold; }
         .chat-message-bot { color: #2ca02c; font-weight: bold; }
-        .emoji-title { font-size: 28px !important; margin-bottom: 0.5rem; }
     </style>
 """, unsafe_allow_html=True)
 
-# Initialize wallet monitor
+# === Add centered Purple Team logo as banner
+logo = Image.open("PTC.png")
+st.markdown("<div style='text-align: center; padding: 20px 0;'>", unsafe_allow_html=True)
+st.image(logo, use_column_width="auto")
+st.markdown("</div>", unsafe_allow_html=True)
+
+# === Initialize wallet monitor
 print("⚙️ Starting wallet monitor...")
 init_wallet_monitor()
 print("✅ Wallet monitor initialized.")
 
+# === Define trend evaluation logic
 def evaluate_trend_by_category(df):
     latest = df.iloc[-1]
     categories = {
@@ -59,8 +67,7 @@ def evaluate_trend_by_category(df):
     }
 
     summary = {}
-    total_bullish = 0
-    total_bearish = 0
+    total_bullish = total_bearish = 0
 
     for category, rules in categories.items():
         checks = {label: result for label, result in rules}
@@ -82,22 +89,7 @@ def evaluate_trend_by_category(df):
     }
     return summary
 
-def build_trend_summary(summary):
-    lines = [
-        f"Current trend: {summary['overall']['trend']}",
-        f"Bullish indicators: {summary['overall']['bullish_score']}",
-        f"Bearish indicators: {summary['overall']['bearish_score']}",
-        ""
-    ]
-    for cat in ["momentum", "trend", "volatility", "volume"]:
-        cat_summary = summary[cat]
-        lines.append(f"{cat.capitalize()} ({cat_summary['score']}):")
-        for label, result in cat_summary["details"].items():
-            emoji = "✅" if result else "❌"
-            lines.append(f"  {emoji} {label}")
-        lines.append("")
-    return "\n".join(lines)
-
+# === Load market data and evaluate trend
 try:
     with st.spinner("📡 Loading Solana trend data..."):
         df = get_binance_sol_ohlcv(limit=1000)
@@ -111,7 +103,8 @@ try:
     def send_telegram_alert(summary):
         if not bot_token or not chat_id:
             return
-        bullish, bearish = [], []
+        bullish = []
+        bearish = []
         for category in ["momentum", "trend", "volatility", "volume"]:
             for label, result in summary[category]["details"].items():
                 if result and len(bullish) < 3:
@@ -142,9 +135,7 @@ try:
 
     check_and_alert_trend(trend)
 
-    # === Main Dashboard ===
-    st.markdown("### 📈 Solana (SOL) Trend Dashboard", unsafe_allow_html=True)
-
+    st.markdown("### 📈 Solana (SOL) Trend Dashboard")
     cols = st.columns(3)
     cols[0].metric("📊 Bullish Signals", trend["overall"]["bullish_score"])
     cols[1].metric("📉 Bearish Signals", trend["overall"]["bearish_score"])
@@ -183,7 +174,6 @@ try:
 except Exception as e:
     st.error(f"❌ Failed to load dashboard: {e}")
 
-# === Chat Section ===
 st.divider()
 st.markdown("### 💬 Chat with TinyLlama")
 
@@ -218,7 +208,6 @@ for speaker, msg in st.session_state.chat_history:
     speaker_class = "chat-message-user" if speaker == "🧑" else "chat-message-bot"
     st.markdown(f"<div class='chat-message'><span class='{speaker_class}'>{speaker}</span>: {msg}</div>", unsafe_allow_html=True)
 
-# === Wallet Debug Log on Main Page ===
 st.divider()
 st.markdown("### 🪵 Wallet Debug Log")
 
