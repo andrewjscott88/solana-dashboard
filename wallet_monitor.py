@@ -41,6 +41,7 @@ def on_open(ws):
         log(f"❌ Error in on_open: {e}")
 
 
+
 def start_wallet_monitor():
     try:
         HELIUS_API_KEY = st.secrets["HELIUS_API_KEY2"]
@@ -56,6 +57,7 @@ def start_wallet_monitor():
         ws.run_forever()
     except Exception as e:
         log(f"❌ Error starting monitor: {e}")
+
 
 
 
