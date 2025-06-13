@@ -6,7 +6,6 @@ import requests
 import os
 import re
 
-# Must be first
 st.set_page_config(page_title="📊 Solana Trend Dashboard", layout="wide")
 
 print("⚙️ Calling init_wallet_monitor()...")
@@ -138,17 +137,21 @@ try:
     st.metric("Trend", trend["overall"]["trend"])
 
     st.subheader("📁 Category Breakdown")
-    cols = st.columns(2)
-    for i, category in enumerate(["momentum", "trend", "volatility", "volume"]):
+    for category in ["momentum", "trend", "volatility", "volume"]:
         if category in trend:
-            with cols[i % 2]:
-                st.metric(label=category.capitalize(), value=trend[category]["score"])
-                bullish_ratio = trend[category]["bullish"] / len(trend[category]["details"])
+            cat_summary = trend[category]
+            bullish = cat_summary["bullish"]
+            total = len(cat_summary["details"])
+            bullish_ratio = bullish / total
+
+            with st.expander(f"📂 {category.capitalize()} — {bullish}/{total} bullish"):
                 st.progress(bullish_ratio)
-                with st.expander(f"{category.capitalize()} Details"):
-                    for label, result in trend[category]["details"].items():
-                        emoji = "✅" if result else "❌"
-                        st.write(f"{emoji} {label}")
+                for label, result in cat_summary["details"].items():
+                    col1, col2 = st.columns([0.1, 0.9])
+                    with col1:
+                        st.markdown("✅" if result else "❌")
+                    with col2:
+                        st.markdown(f"**{label}**")
 
     st.subheader("📉 Price with SMAs")
     fig, ax = plt.subplots(figsize=(10, 4))
@@ -209,7 +212,6 @@ with st.sidebar.expander("🪵 Wallet Debug Log"):
     if os.path.exists(log_path):
         with open(log_path) as f:
             raw_log = f.read()
-            # Redact API key
             sanitized_log = re.sub(r'api-key=[\w-]+', 'api-key=***REDACTED***', raw_log)
             st.code(sanitized_log, language="text")
     else:
